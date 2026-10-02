@@ -1,0 +1,47 @@
+{
+  "title": "mc_tasks::ManipulabilityTask",
+  "description": "Drives the manipulability of a frame toward a target. The measure is Yoshikawa's velocity manipulability \\(\\sqrt{\\det(\\tilde{J}\\tilde{J}^T)}\\) of the frame Jacobian in frame coordinates, restricted to the selected axes and measure joints and normalized by the maximum frame and joint velocities. To maximize the manipulability, set a target above the reachable values or a positive reference velocity.",
+  "type": "object",
+  "allOf":
+  [
+    {
+      "$ref": "../common/MetaTask_common.json"
+    },
+    {
+      "$ref": "../common/MetaTask_frame.json"
+    },
+    {
+      "properties":
+      {
+        "type": { "const": "manipulability" },
+        "joints": { "type": "array", "items": { "type": "string" }, "description": "Joints whose Jacobian columns define the measure<br>If empty, every joint between the robot root and the frame but a floating base<br>Use activeJoints to select the joints that change the measure" },
+        "axes": { "$ref": "../Eigen/Vector6d.json", "description": "Frame axes used by the measure, ordered as rotation then translation, a non-zero entry selects the axis<br>Defaults to all axes" },
+        "measure": { "type": "string", "enum": ["yoshikawa"], "default": "yoshikawa", "description": "Manipulability measure" },
+        "target": { "type": "number", "minimum": 0, "description": "Target manipulability<br>Defaults to the current manipulability" },
+        "maxTaskVelocity": { "$ref": "../Eigen/Vector6d.json", "description": "Maximum frame velocity along each axis, the Jacobian rows are divided by these values<br>Defaults to 1" },
+        "useVelocityLimits": { "type": "boolean", "default": false, "description": "Use the robot velocity limits as the maximum joint velocities, the Jacobian columns are multiplied by these values" },
+        "maxJointVelocity":
+        {
+          "type": "object",
+          "description": "Maximum velocity of some measure joints (applied after useVelocityLimits)<br>Defaults to 1",
+          "properties":
+          {
+            "*": { "type": "number", "exclusiveMinimum": 0, "description": "Maximum velocity of the joint" }
+          }
+        }
+      }
+    },
+    {
+      "$ref": "../common/TrajectoryTaskGeneric.json"
+    },
+    {
+      "properties":
+      {
+        "weight": { "default": 1000 },
+        "stiffness": { "default": 2 },
+        "dimWeight": { "$ref": "../Eigen/VectorXd.json", "description": "Ignored by ManipulabilityTask (one-dimensional task)" }
+      }
+    }
+  ],
+  "required": ["type", "frame"]
+}

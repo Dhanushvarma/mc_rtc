@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `mc_tasks::ManipulabilityTask` (`type: manipulability`) drives the Yoshikawa velocity manipulability of a frame toward a target, for both the Tasks and TVM backends. The measure joints, the frame axes and a normalization by the maximum frame and joint velocities are configurable. Requires Tasks with `tasks::ManipulabilityTask`.
+
 ## [2.15.2] - 2026-07-15
 
 ### Debian Packaging

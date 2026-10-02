@@ -1,0 +1,9 @@
+type: manipulability
+frame: RightGripper
+joints: [R_SHOULDER_P, R_SHOULDER_R, R_SHOULDER_Y, R_ELBOW_P, R_ELBOW_Y, R_WRIST_R, R_WRIST_Y]
+activeJoints: [R_SHOULDER_P, R_SHOULDER_R, R_SHOULDER_Y, R_ELBOW_P, R_ELBOW_Y, R_WRIST_R, R_WRIST_Y]
+# Translation only, with a maximum velocity of 0.5 m/s
+axes: [0, 0, 0, 1, 1, 1]
+maxTaskVelocity: [1, 1, 1, 0.5, 0.5, 0.5]
+maxJointVelocity:
+  R_ELBOW_P: 2.0

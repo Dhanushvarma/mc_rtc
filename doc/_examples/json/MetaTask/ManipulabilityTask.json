@@ -1,0 +1,8 @@
+{
+  "type": "manipulability",
+  "frame": "RightGripper",
+  "joints": ["R_SHOULDER_P", "R_SHOULDER_R", "R_SHOULDER_Y", "R_ELBOW_P", "R_ELBOW_Y", "R_WRIST_R", "R_WRIST_Y"],
+  "activeJoints": ["R_SHOULDER_P", "R_SHOULDER_R", "R_SHOULDER_Y", "R_ELBOW_P", "R_ELBOW_Y", "R_WRIST_R", "R_WRIST_Y"],
+  "target": 0.05,
+  "useVelocityLimits": true
+}
