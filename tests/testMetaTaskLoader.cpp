@@ -13,6 +13,7 @@
 #include <mc_tasks/ComplianceTask.h>
 #include <mc_tasks/ExactCubicTrajectoryTask.h>
 #include <mc_tasks/GazeTask.h>
+#include <mc_tasks/ManipulabilityTask.h>
 #include <mc_tasks/MetaTaskLoader.h>
 #include <mc_tasks/PositionBasedVisServoTask.h>
 #include <mc_tasks/PostureTask.h>
@@ -536,6 +537,68 @@ struct TaskTester<mc_tasks::VectorOrientationTask>
 };
 
 template<>
+struct TaskTester<mc_tasks::ManipulabilityTask>
+{
+  mc_tasks::MetaTaskPtr make_ref(mc_solver::QPSolver &)
+  {
+    auto ret =
+        std::make_shared<mc_tasks::ManipulabilityTask>(robots->robot(0).frame("RightGripper"), joints, axes,
+                                                       tasks::ManipulabilityMeasure::Yoshikawa, stiffness, weight);
+    ret->target(target);
+    ret->maxTaskVelocity(maxTaskVelocity);
+    ret->maxJointVelocityFromLimits();
+    ret->maxJointVelocity({{"R_ELBOW_P", 2.0}});
+    return ret;
+  }
+
+  std::string json()
+  {
+    mc_rtc::Configuration config;
+    config.add("type", "manipulability");
+    config.add("robotIndex", 0);
+    config.add("frame", "RightGripper");
+    config.add("joints", joints);
+    config.add("axes", axes);
+    config.add("measure", "yoshikawa");
+    config.add("target", target);
+    config.add("maxTaskVelocity", maxTaskVelocity);
+    config.add("useVelocityLimits", true);
+    config.add("maxJointVelocity").add("R_ELBOW_P", 2.0);
+    config.add("stiffness", stiffness);
+    config.add("weight", weight);
+    auto ret = getTmpFile();
+    config.save(ret);
+    return ret;
+  }
+
+  void check(const mc_tasks::MetaTaskPtr & ref_p, const mc_tasks::MetaTaskPtr & loaded_p)
+  {
+    auto ref = std::dynamic_pointer_cast<mc_tasks::ManipulabilityTask>(ref_p);
+    auto loaded = std::dynamic_pointer_cast<mc_tasks::ManipulabilityTask>(loaded_p);
+    BOOST_REQUIRE(ref);
+    BOOST_REQUIRE(loaded);
+    BOOST_CHECK_CLOSE(ref->stiffness(), loaded->stiffness(), 1e-6);
+    BOOST_CHECK_CLOSE(ref->weight(), loaded->weight(), 1e-6);
+    BOOST_CHECK_CLOSE(ref->target(), loaded->target(), 1e-6);
+    BOOST_CHECK(ref->frame().name() == loaded->frame().name());
+    BOOST_CHECK(ref->measureJoints() == joints);
+    BOOST_CHECK(ref->measureJoints() == loaded->measureJoints());
+    BOOST_CHECK(ref->axes() == loaded->axes());
+    BOOST_CHECK(ref->maxTaskVelocity() == loaded->maxTaskVelocity());
+    BOOST_CHECK(ref->maxJointVelocity() == loaded->maxJointVelocity());
+    BOOST_CHECK_CLOSE(loaded->maxJointVelocity()(3), 2.0, 1e-6);
+  }
+
+  std::vector<std::string> joints = {"R_SHOULDER_P", "R_SHOULDER_R", "R_SHOULDER_Y", "R_ELBOW_P",
+                                     "R_ELBOW_Y",    "R_WRIST_R",    "R_WRIST_Y"};
+  Eigen::Vector6d axes = (Eigen::Vector6d() << 0., 0., 1., 1., 1., 1.).finished();
+  Eigen::Vector6d maxTaskVelocity = (Eigen::Vector6d() << 1., 1., 2., 0.5, 0.5, 0.5).finished();
+  double target = fabs(rnd());
+  double stiffness = fabs(rnd());
+  double weight = fabs(rnd());
+};
+
+template<>
 struct TaskTester<mc_tasks::PostureTask>
 {
   mc_tasks::MetaTaskPtr make_ref(mc_solver::QPSolver & solver)
@@ -669,6 +732,7 @@ typedef boost::mpl::list<mc_tasks::CoMTask,
                          mc_tasks::PositionBasedVisServoTask,
                          mc_tasks::SurfaceTransformTask,
                          mc_tasks::VectorOrientationTask,
+                         mc_tasks::ManipulabilityTask,
                          mc_tasks::PostureTask,
                          mc_tasks::BSplineTrajectoryTask,
                          mc_tasks::ExactCubicTrajectoryTask>
