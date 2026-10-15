@@ -17,6 +17,7 @@
     { "$ref": "../MetaTask/LookAtTask.json" },
     { "$ref": "../MetaTask/LookAtTFTask.json" },
     { "$ref": "../MetaTask/ManipulabilityTask.json" },
+    { "$ref": "../MetaTask/ManipulabilityEllipsoidTask.json" },
     { "$ref": "../MetaTask/MomentumTask.json" },
     { "$ref": "../MetaTask/OrientationTask.json" },
     { "$ref": "../MetaTask/PBVSTask.json" },

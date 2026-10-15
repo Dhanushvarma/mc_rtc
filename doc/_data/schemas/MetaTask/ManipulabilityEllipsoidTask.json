@@ -1,0 +1,57 @@
+{
+  "title": "mc_tasks::ManipulabilityEllipsoidTask",
+  "description": "Tracks the manipulability ellipsoid of a frame, a symmetric positive definite (SPD) matrix, toward a target ellipsoid with the geometry-aware error \\(\\mathrm{Log}_M(\\hat{M})\\) on the manifold of SPD matrices (Jaquier et al., IJRR 2021). The ellipsoid is the velocity manipulability \\(\\tilde{J}\\tilde{J}^T\\) of the frame Jacobian in world coordinates, restricted to the selected world axes and measure joints. For D axes, the task dimension is D(D+1)/2: matrices are vectorized with the Mandel notation, the diagonal first, then each superdiagonal times \\(\\sqrt{2}\\).",
+  "type": "object",
+  "allOf":
+  [
+    {
+      "$ref": "../common/MetaTask_common.json"
+    },
+    {
+      "$ref": "../common/MetaTask_frame.json"
+    },
+    {
+      "properties":
+      {
+        "type": { "const": "manipulabilityEllipsoid" },
+        "joints": { "type": "array", "items": { "type": "string" }, "description": "Joints whose Jacobian columns define the ellipsoid<br>If empty, every joint between the robot root and the frame but a floating base<br>Use activeJoints to select the joints that change the ellipsoid" },
+        "axes": { "$ref": "../Eigen/Vector6d.json", "description": "World axes of the ellipsoid, ordered as rotation then translation, a non-zero entry selects the axis<br>Defaults to the translation axes" },
+        "ellipsoid": { "type": "string", "enum": ["velocity"], "default": "velocity", "description": "Manipulability ellipsoid" },
+        "error": { "type": "string", "enum": ["geometryAware", "euclidean"], "default": "geometryAware", "description": "Error between the ellipsoid and the target: the logarithmic map on the SPD manifold, or the Euclidean difference" },
+        "target": { "type": "array", "items": { "type": "array", "items": { "type": "number" } }, "description": "Target ellipsoid, a symmetric positive definite matrix given row by row, of the size of the number of axes<br>Defaults to the current ellipsoid" },
+        "targetPosture":
+        {
+          "type": "object",
+          "description": "Use the ellipsoid of the robot in this posture as the target (if target is not given)<br>Joints that are not given keep their current value",
+          "properties":
+          {
+            "*": { "type": "array", "items": { "type": "number" }, "description": "Joint configuration" }
+          }
+        },
+        "targetVel": { "type": "array", "items": { "type": "array", "items": { "type": "number" } }, "description": "Target ellipsoid velocity, a symmetric matrix given row by row (task reference velocity)" },
+        "targetAccel": { "type": "array", "items": { "type": "array", "items": { "type": "number" } }, "description": "Target ellipsoid acceleration, a symmetric matrix given row by row (task reference acceleration)" },
+        "useVelocityLimits": { "type": "boolean", "default": false, "description": "Use the robot velocity limits as the maximum joint velocities, the Jacobian columns are multiplied by these values" },
+        "maxJointVelocity":
+        {
+          "type": "object",
+          "description": "Maximum velocity of some measure joints (applied after useVelocityLimits)<br>Defaults to 1",
+          "properties":
+          {
+            "*": { "type": "number", "exclusiveMinimum": 0, "description": "Maximum velocity of the joint" }
+          }
+        }
+      }
+    },
+    {
+      "$ref": "../common/TrajectoryTaskGeneric.json"
+    },
+    {
+      "properties":
+      {
+        "weight": { "default": 100 },
+        "stiffness": { "default": 5 }
+      }
+    }
+  ],
+  "required": ["type", "frame"]
+}

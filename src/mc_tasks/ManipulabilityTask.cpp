@@ -4,6 +4,8 @@
 
 #include <mc_tasks/ManipulabilityTask.h>
 
+#include "ManipulabilityJointVelocity.h"
+
 #include <mc_tasks/MetaTaskLoader.h>
 
 #include <mc_tvm/ManipulabilityFunction.h>
@@ -81,49 +83,14 @@ const Eigen::Vector6d & ManipulabilityTask::maxTaskVelocity() const
 
 void ManipulabilityTask::maxJointVelocity(const std::map<std::string, double> & velocities)
 {
-  const auto & robot = frame_->robot();
-  Eigen::VectorXd maxVelocity = maxJointVelocity();
-  for(const auto & [name, velocity] : velocities)
-  {
-    Eigen::Index start = 0;
-    bool found = false;
-    for(const auto & j : measureJoints())
-    {
-      auto dof = robot.mb().joint(static_cast<int>(robot.jointIndexByName(j))).dof();
-      if(j == name)
-      {
-        maxVelocity.segment(start, dof).setConstant(velocity);
-        found = true;
-        break;
-      }
-      start += dof;
-    }
-    if(!found) { throw std::domain_error(fmt::format("[{}] {} is not a measure joint of this task", name_, name)); }
-  }
-  manipulability_->maxJointVelocity(maxVelocity);
+  manipulability_->maxJointVelocity(
+      details::maxJointVelocity(frame_->robot(), measureJoints(), maxJointVelocity(), velocities, name_));
 }
 
 void ManipulabilityTask::maxJointVelocityFromLimits()
 {
-  const auto & robot = frame_->robot();
-  Eigen::VectorXd maxVelocity = maxJointVelocity();
-  Eigen::Index start = 0;
-  for(const auto & j : measureJoints())
-  {
-    auto jIndex = robot.jointIndexByName(j);
-    const auto & vl = robot.vl()[jIndex];
-    const auto & vu = robot.vu()[jIndex];
-    for(size_t d = 0; d < vu.size(); ++d)
-    {
-      double velocity = std::min(std::abs(vl[d]), std::abs(vu[d]));
-      if(!std::isfinite(velocity) || velocity <= 0.)
-      {
-        throw std::domain_error(fmt::format("[{}] {} has no usable velocity limit", name_, j));
-      }
-      maxVelocity(start++) = velocity;
-    }
-  }
-  manipulability_->maxJointVelocity(maxVelocity);
+  manipulability_->maxJointVelocity(
+      details::maxJointVelocityFromLimits(frame_->robot(), measureJoints(), maxJointVelocity(), name_));
 }
 
 const Eigen::VectorXd & ManipulabilityTask::maxJointVelocity() const

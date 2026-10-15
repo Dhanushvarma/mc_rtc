@@ -21,6 +21,7 @@ namespace fs = std::filesystem;
 #include <mc_tasks/ImpedanceTask.h>
 #include <mc_tasks/LookAtFrameTask.h>
 #include <mc_tasks/LookAtTask.h>
+#include <mc_tasks/ManipulabilityEllipsoidTask.h>
 #include <mc_tasks/ManipulabilityTask.h>
 #include <mc_tasks/MomentumTask.h>
 #include <mc_tasks/OrientationTask.h>
@@ -107,6 +108,7 @@ TEST_TASK(mc_tasks::lipm_stabilizer::StabilizerTask, LIPMStabilizerTask)
 TEST_TASK(mc_tasks::LookAtFrameTask, LookAtFrameTask)
 TEST_TASK(mc_tasks::LookAtTask, LookAtTask)
 TEST_TASK(mc_tasks::ManipulabilityTask, ManipulabilityTask)
+TEST_TASK(mc_tasks::ManipulabilityEllipsoidTask, ManipulabilityEllipsoidTask)
 TEST_TASK(mc_tasks::MomentumTask, MomentumTask)
 TEST_TASK(mc_tasks::OrientationTask, OrientationTask)
 TEST_TASK(mc_tasks::PositionBasedVisServoTask, PBVSTask)

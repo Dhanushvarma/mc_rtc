@@ -1,0 +1,7 @@
+type: manipulabilityEllipsoid
+frame: RightGripper
+joints: [R_SHOULDER_P, R_SHOULDER_R, R_SHOULDER_Y, R_ELBOW_P, R_ELBOW_Y, R_WRIST_R, R_WRIST_Y]
+activeJoints: [R_SHOULDER_P, R_SHOULDER_R, R_SHOULDER_Y, R_ELBOW_P, R_ELBOW_Y, R_WRIST_R, R_WRIST_Y]
+# Translation ellipsoid (default axes), the target is the ellipsoid of the arm with the elbow bent
+targetPosture:
+  R_ELBOW_P: [-1.2]

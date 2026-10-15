@@ -306,6 +306,7 @@ set(mc_tvm_HDR
     ${mc_tvm_HDR_DIR}/GazeFunction.h
     ${mc_tvm_HDR_DIR}/Limits.h
     ${mc_tvm_HDR_DIR}/JointsSelectorFunction.h
+    ${mc_tvm_HDR_DIR}/ManipulabilityEllipsoidFunction.h
     ${mc_tvm_HDR_DIR}/ManipulabilityFunction.h
     ${mc_tvm_HDR_DIR}/Momentum.h
     ${mc_tvm_HDR_DIR}/MomentumFunction.h
@@ -331,6 +332,7 @@ set(mc_tvm_SRC
     mc_tvm/FrameVelocity.cpp
     mc_tvm/GazeFunction.cpp
     mc_tvm/JointsSelectorFunction.cpp
+    mc_tvm/ManipulabilityEllipsoidFunction.cpp
     mc_tvm/ManipulabilityFunction.cpp
     mc_tvm/Momentum.cpp
     mc_tvm/MomentumFunction.cpp
@@ -530,6 +532,7 @@ set(mc_tasks_SRC
     mc_tasks/PostureTask.cpp
     mc_tasks/LookAtTask.cpp
     mc_tasks/LookAtFrameTask.cpp
+    mc_tasks/ManipulabilityEllipsoidTask.cpp
     mc_tasks/ManipulabilityTask.cpp
     mc_tasks/MetaTaskLoader.cpp
     mc_tasks/lipm_stabilizer/StabilizerTask.cpp
@@ -569,6 +572,7 @@ set(mc_tasks_HDR
     ../include/mc_tasks/LookAtTask.h
     ../include/mc_tasks/LookAtFrameTask.h
     ../include/mc_tasks/LookAtSurfaceTask.h
+    ../include/mc_tasks/ManipulabilityEllipsoidTask.h
     ../include/mc_tasks/ManipulabilityTask.h
     ../include/mc_tasks/lipm_stabilizer/StabilizerTask.h
     ../include/mc_tasks/lipm_stabilizer/Contact.h
