@@ -1,6 +1,6 @@
 {
   "title": "mc_tasks::ManipulabilityEllipsoidTask",
-  "description": "Tracks the manipulability ellipsoid of a frame, a symmetric positive definite (SPD) matrix, toward a target ellipsoid with the geometry-aware error \\(\\mathrm{Log}_M(\\hat{M})\\) on the manifold of SPD matrices (Jaquier et al., IJRR 2021). The ellipsoid is the velocity manipulability \\(\\tilde{J}\\tilde{J}^T\\) of the frame Jacobian in world coordinates, restricted to the selected world axes and measure joints. For D axes, the task dimension is D(D+1)/2: matrices are vectorized with the Mandel notation, the diagonal first, then each superdiagonal times \\(\\sqrt{2}\\).",
+  "description": "Tracks the manipulability ellipsoid of a frame, a symmetric positive definite (SPD) matrix, toward a target ellipsoid with the geometry-aware error \\(\\mathrm{Log}_M(\\hat{M})\\) on the manifold of SPD matrices (Jaquier et al., IJRR 2021). The ellipsoid is the velocity manipulability \\(\\tilde{J}\\tilde{J}^T\\) or the force manipulability \\((\\tilde{J}\\tilde{J}^T)^{-1}\\) of the frame Jacobian in world coordinates, restricted to the selected world axes and measure joints. For D axes, the task dimension is D(D+1)/2: matrices are vectorized with the Mandel notation, the diagonal first, then each superdiagonal times \\(\\sqrt{2}\\).",
   "type": "object",
   "allOf":
   [
@@ -16,7 +16,7 @@
         "type": { "const": "manipulabilityEllipsoid" },
         "joints": { "type": "array", "items": { "type": "string" }, "description": "Joints whose Jacobian columns define the ellipsoid<br>If empty, every joint between the robot root and the frame but a floating base<br>Use activeJoints to select the joints that change the ellipsoid" },
         "axes": { "$ref": "../Eigen/Vector6d.json", "description": "World axes of the ellipsoid, ordered as rotation then translation, a non-zero entry selects the axis<br>Defaults to the translation axes" },
-        "ellipsoid": { "type": "string", "enum": ["velocity"], "default": "velocity", "description": "Manipulability ellipsoid" },
+        "ellipsoid": { "type": "string", "enum": ["velocity", "force"], "default": "velocity", "description": "Manipulability ellipsoid: the velocity ellipsoid, or the force ellipsoid (its inverse)<br>With useTorqueLimits, the force ellipsoid is in N² for the translation axes: lower the weight accordingly" },
         "error": { "type": "string", "enum": ["geometryAware", "euclidean"], "default": "geometryAware", "description": "Error between the ellipsoid and the target: the logarithmic map on the SPD manifold, or the Euclidean difference" },
         "target": { "type": "array", "items": { "type": "array", "items": { "type": "number" } }, "description": "Target ellipsoid, a symmetric positive definite matrix given row by row, of the size of the number of axes<br>Defaults to the current ellipsoid" },
         "targetPosture":
@@ -30,16 +30,27 @@
         },
         "targetVel": { "type": "array", "items": { "type": "array", "items": { "type": "number" } }, "description": "Target ellipsoid velocity, a symmetric matrix given row by row (task reference velocity)" },
         "targetAccel": { "type": "array", "items": { "type": "array", "items": { "type": "number" } }, "description": "Target ellipsoid acceleration, a symmetric matrix given row by row (task reference acceleration)" },
-        "useVelocityLimits": { "type": "boolean", "default": false, "description": "Use the robot velocity limits as the maximum joint velocities, the Jacobian columns are multiplied by these values" },
+        "useVelocityLimits": { "type": "boolean", "default": false, "description": "Use the robot velocity limits as the maximum joint velocities, the Jacobian columns are multiplied by these values (velocity ellipsoid only)" },
         "maxJointVelocity":
         {
           "type": "object",
-          "description": "Maximum velocity of some measure joints (applied after useVelocityLimits)<br>Defaults to 1",
+          "description": "Maximum velocity of some measure joints (applied after useVelocityLimits, velocity ellipsoid only)<br>Defaults to 1",
           "properties":
           {
             "*": { "type": "number", "exclusiveMinimum": 0, "description": "Maximum velocity of the joint" }
           }
-        }
+        },
+        "useTorqueLimits": { "type": "boolean", "default": false, "description": "Use the robot torque limits as the maximum joint torques, the Jacobian columns are divided by these values (force ellipsoid only)" },
+        "maxJointTorque":
+        {
+          "type": "object",
+          "description": "Maximum torque of some measure joints (applied after useTorqueLimits, force ellipsoid only)<br>Defaults to 1",
+          "properties":
+          {
+            "*": { "type": "number", "exclusiveMinimum": 0, "description": "Maximum torque of the joint" }
+          }
+        },
+        "displayScale": { "type": "number", "exclusiveMinimum": 0, "default": 0.25, "description": "Scale of the ellipsoids drawn in the GUI: their semi-axes are the square roots of the eigenvalues times this scale<br>Force ellipsoids with useTorqueLimits are in N, try 0.001" }
       }
     },
     {

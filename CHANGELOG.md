@@ -6,6 +6,7 @@
 
 - `mc_tasks::ManipulabilityTask` (`type: manipulability`) drives the Yoshikawa velocity manipulability of a frame toward a target, for both the Tasks and TVM backends. The measure joints, the frame axes and a normalization by the maximum frame and joint velocities are configurable. Requires Tasks with `tasks::ManipulabilityTask`.
 - `mc_tasks::ManipulabilityEllipsoidTask` (`type: manipulabilityEllipsoid`) tracks a target manipulability ellipsoid (an SPD matrix) of a frame with the geometry-aware error of Jaquier et al. (IJRR 2021), or a Euclidean error, for both the Tasks and TVM backends. The target can be a matrix or the ellipsoid of a posture, with a reference velocity and acceleration. Requires Tasks with `tasks::ManipulabilityEllipsoidTask`.
+- `mc_tasks::ManipulabilityEllipsoidTask` also tracks the force manipulability ellipsoid (`ellipsoid: force`), the inverse of the velocity ellipsoid, with the Jacobian columns divided by the maximum joint torques (`useTorqueLimits`, `maxJointTorque`). `displayScale` sets the size of the ellipsoids drawn in the GUI. Requires Tasks with `tasks::ManipulabilityEllipsoidType::Force`.
 
 ### Fixed
 

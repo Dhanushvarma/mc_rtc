@@ -4,7 +4,7 @@
 
 #include <mc_tasks/ManipulabilityEllipsoidTask.h>
 
-#include "ManipulabilityJointVelocity.h"
+#include "ManipulabilityJointLimits.h"
 
 #include <mc_tasks/MetaTaskLoader.h>
 
@@ -40,6 +40,24 @@ std::pair<Eigen::Matrix3d, Eigen::Vector3d> ellipsoidShape(const Eigen::MatrixXd
   if(V.determinant() < 0) { V.col(0) *= -1; }
   Eigen::Vector3d size = (2 * scale * es.eigenvalues().cwiseMax(0.).cwiseSqrt()).cwiseMax(1e-3);
   return {V, size};
+}
+
+/** Name of an ellipsoid in configurations */
+const char * ellipsoidName(tasks::ManipulabilityEllipsoidType type)
+{
+  return type == tasks::ManipulabilityEllipsoidType::Force ? "force" : "velocity";
+}
+
+/** Throw if the task does not track the given ellipsoid, what names the setting that needs it */
+void requireEllipsoid(const ManipulabilityEllipsoidTask & task,
+                      tasks::ManipulabilityEllipsoidType type,
+                      const std::string & what)
+{
+  if(task.ellipsoidType() != type)
+  {
+    throw std::domain_error(fmt::format("[{}] {} only apply to the {} ellipsoid, this task tracks the {} ellipsoid",
+                                        task.name(), what, ellipsoidName(type), ellipsoidName(task.ellipsoidType())));
+  }
 }
 
 } // namespace
@@ -156,12 +174,14 @@ tasks::ManipulabilityEllipsoidError ManipulabilityEllipsoidTask::error() const
 
 void ManipulabilityEllipsoidTask::maxJointVelocity(const std::map<std::string, double> & velocities)
 {
+  requireEllipsoid(*this, tasks::ManipulabilityEllipsoidType::Velocity, "maximum joint velocities");
   ellipsoid_->maxJointVelocity(
-      details::maxJointVelocity(frame_->robot(), measureJoints(), maxJointVelocity(), velocities, name_));
+      details::measureJointValues(frame_->robot(), measureJoints(), maxJointVelocity(), velocities, name_));
 }
 
 void ManipulabilityEllipsoidTask::maxJointVelocityFromLimits()
 {
+  requireEllipsoid(*this, tasks::ManipulabilityEllipsoidType::Velocity, "maximum joint velocities");
   ellipsoid_->maxJointVelocity(
       details::maxJointVelocityFromLimits(frame_->robot(), measureJoints(), maxJointVelocity(), name_));
 }
@@ -169,6 +189,34 @@ void ManipulabilityEllipsoidTask::maxJointVelocityFromLimits()
 const Eigen::VectorXd & ManipulabilityEllipsoidTask::maxJointVelocity() const
 {
   return ellipsoid_->maxJointVelocity();
+}
+
+void ManipulabilityEllipsoidTask::maxJointTorque(const std::map<std::string, double> & torques)
+{
+  requireEllipsoid(*this, tasks::ManipulabilityEllipsoidType::Force, "maximum joint torques");
+  ellipsoid_->maxJointTorque(
+      details::measureJointValues(frame_->robot(), measureJoints(), maxJointTorque(), torques, name_));
+}
+
+void ManipulabilityEllipsoidTask::maxJointTorqueFromLimits()
+{
+  requireEllipsoid(*this, tasks::ManipulabilityEllipsoidType::Force, "maximum joint torques");
+  ellipsoid_->maxJointTorque(
+      details::maxJointTorqueFromLimits(frame_->robot(), measureJoints(), maxJointTorque(), name_));
+}
+
+const Eigen::VectorXd & ManipulabilityEllipsoidTask::maxJointTorque() const
+{
+  return ellipsoid_->maxJointTorque();
+}
+
+void ManipulabilityEllipsoidTask::displayScale(double scale)
+{
+  if(!(scale > 0.) || !std::isfinite(scale))
+  {
+    throw std::domain_error(fmt::format("[{}] the display scale must be positive, got {}", name_, scale));
+  }
+  displayScale_ = scale;
 }
 
 const std::vector<std::string> & ManipulabilityEllipsoidTask::measureJoints() const
@@ -205,6 +253,7 @@ void ManipulabilityEllipsoidTask::load(mc_solver::QPSolver & solver, const mc_rt
                                    errorName);
     }
   }
+  if(config.has("displayScale")) { displayScale(config("displayScale")); }
   bool scaled = false;
   if(config("useVelocityLimits", false))
   {
@@ -214,6 +263,16 @@ void ManipulabilityEllipsoidTask::load(mc_solver::QPSolver & solver, const mc_rt
   if(config.has("maxJointVelocity"))
   {
     maxJointVelocity(config("maxJointVelocity"));
+    scaled = true;
+  }
+  if(config("useTorqueLimits", false))
+  {
+    maxJointTorqueFromLimits();
+    scaled = true;
+  }
+  if(config.has("maxJointTorque"))
+  {
+    maxJointTorque(config("maxJointTorque"));
     scaled = true;
   }
   if(config.has("target")) { target(config("target").operator Eigen::MatrixXd()); }
@@ -234,10 +293,16 @@ void ManipulabilityEllipsoidTask::addToLogger(mc_rtc::Logger & logger)
 void ManipulabilityEllipsoidTask::addToGUI(mc_rtc::gui::StateBuilder & gui)
 {
   TrajectoryTaskGeneric::addToGUI(gui);
-  gui.addElement({"Tasks", name_}, mc_rtc::gui::Label("distance", [this]() { return distance(); }),
+  gui.addElement({"Tasks", name_},
+                 mc_rtc::gui::Label("ellipsoid", [this]() { return std::string{ellipsoidName(ellipsoidType())}; }),
+                 mc_rtc::gui::Label("distance", [this]() { return distance(); }),
                  mc_rtc::gui::Button("Target = current ellipsoid", [this]() { targetCurrent(); }),
                  mc_rtc::gui::NumberInput(
-                     "Display scale", [this]() { return displayScale_; }, [this](double s) { displayScale_ = s; }));
+                     "Display scale", [this]() { return displayScale_; },
+                     [this](double s)
+                     {
+                       if(s > 0.) { displayScale_ = s; }
+                     }));
   // Draw the ellipsoids when the axes are the rotation or the translation axes
   const Eigen::Vector6d & a = axes();
   const bool rotation = (a.head<3>().array() != 0.).all() && (a.tail<3>().array() == 0.).all();
@@ -276,7 +341,8 @@ tasks::ManipulabilityEllipsoidType ellipsoidFromConfig(const mc_rtc::Configurati
 {
   std::string ellipsoid = config("ellipsoid", std::string{"velocity"});
   if(ellipsoid == "velocity") { return tasks::ManipulabilityEllipsoidType::Velocity; }
-  mc_rtc::log::error_and_throw("[manipulabilityEllipsoid] Unknown ellipsoid {}, supported ellipsoids: velocity",
+  if(ellipsoid == "force") { return tasks::ManipulabilityEllipsoidType::Force; }
+  mc_rtc::log::error_and_throw("[manipulabilityEllipsoid] Unknown ellipsoid {}, supported ellipsoids: velocity, force",
                                ellipsoid);
 }
 

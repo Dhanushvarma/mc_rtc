@@ -4,7 +4,7 @@
 
 #include <mc_tasks/ManipulabilityTask.h>
 
-#include "ManipulabilityJointVelocity.h"
+#include "ManipulabilityJointLimits.h"
 
 #include <mc_tasks/MetaTaskLoader.h>
 
@@ -84,7 +84,7 @@ const Eigen::Vector6d & ManipulabilityTask::maxTaskVelocity() const
 void ManipulabilityTask::maxJointVelocity(const std::map<std::string, double> & velocities)
 {
   manipulability_->maxJointVelocity(
-      details::maxJointVelocity(frame_->robot(), measureJoints(), maxJointVelocity(), velocities, name_));
+      details::measureJointValues(frame_->robot(), measureJoints(), maxJointVelocity(), velocities, name_));
 }
 
 void ManipulabilityTask::maxJointVelocityFromLimits()

@@ -824,3 +824,50 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(TestMetaTaskLoader, T, test_types)
   tester.check(ref, loaded);
   fs::remove(conf);
 }
+
+/* The force ellipsoid keys of manipulabilityEllipsoid, which TaskTester does not cover */
+BOOST_AUTO_TEST_CASE(TestManipulabilityForceEllipsoidLoader)
+{
+  static mc_solver::TasksQPSolver solver(robots, 0.005);
+  const std::vector<std::string> joints = {"R_SHOULDER_P", "R_SHOULDER_R", "R_SHOULDER_Y", "R_ELBOW_P",
+                                           "R_ELBOW_Y",    "R_WRIST_R",    "R_WRIST_Y"};
+  auto config = [&](const std::string & ellipsoid)
+  {
+    mc_rtc::Configuration c;
+    c.add("type", "manipulabilityEllipsoid");
+    c.add("robotIndex", 0);
+    c.add("frame", "RightGripper");
+    c.add("joints", joints);
+    c.add("ellipsoid", ellipsoid);
+    return c;
+  };
+
+  // The torque limits of the robot, one of them overridden, and the current ellipsoid with these torques as the target
+  auto c = config("force");
+  c.add("useTorqueLimits", true);
+  c.add("maxJointTorque").add("R_ELBOW_P", 50.0);
+  c.add("displayScale", 0.002);
+  auto loaded = mc_tasks::MetaTaskLoader::load<mc_tasks::ManipulabilityEllipsoidTask>(solver, c);
+  auto ref = std::make_shared<mc_tasks::ManipulabilityEllipsoidTask>(
+      robots->robot(0).frame("RightGripper"), joints, (Eigen::Vector6d() << 0., 0., 0., 1., 1., 1.).finished(),
+      tasks::ManipulabilityEllipsoidType::Force);
+  ref->maxJointTorqueFromLimits();
+  ref->maxJointTorque({{"R_ELBOW_P", 50.0}});
+  ref->reset();
+  BOOST_CHECK(loaded->ellipsoidType() == tasks::ManipulabilityEllipsoidType::Force);
+  BOOST_CHECK(loaded->maxJointTorque() == ref->maxJointTorque());
+  BOOST_CHECK_CLOSE(loaded->maxJointTorque()(3), 50.0, 1e-6);
+  BOOST_CHECK_CLOSE(loaded->displayScale(), 0.002, 1e-6);
+  BOOST_CHECK(loaded->target().allFinite());
+  BOOST_CHECK_SMALL((loaded->target() - ref->target()).norm(), 1e-9 * ref->target().norm());
+
+  // Each joint scaling applies to its own ellipsoid
+  for(const auto & [ellipsoid, key] :
+      std::vector<std::pair<std::string, std::string>>{{"force", "useVelocityLimits"}, {"velocity", "useTorqueLimits"}})
+  {
+    auto wrong = config(ellipsoid);
+    wrong.add(key, true);
+    BOOST_CHECK_THROW(mc_tasks::MetaTaskLoader::load(solver, wrong), std::exception);
+  }
+  BOOST_CHECK_THROW(mc_tasks::MetaTaskLoader::load(solver, config("dynamic")), std::exception);
+}

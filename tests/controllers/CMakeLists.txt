@@ -308,6 +308,7 @@ controller_test_run(TestEndEffectorTaskController 4001)
 controller_test_run(TestVectorOrientationTaskController 2001)
 controller_test_run(TestManipulabilityTaskController 2501)
 controller_test_run(TestManipulabilityEllipsoidTaskController 2001)
+controller_test_run(TestManipulabilityForceEllipsoidTaskController 2001)
 # mc_solver test controllers
 controller_test_run(TestCoMInBoxController 4001)
 controller_test_run(TestCollisionController 2001)

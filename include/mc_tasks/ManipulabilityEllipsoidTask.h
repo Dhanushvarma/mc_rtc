@@ -20,9 +20,13 @@ namespace mc_tasks
  * and 47): the stiffness and damping are its gains, the target velocity and acceleration are the task reference
  * velocity and acceleration.
  *
- * The ellipsoid is the velocity manipulability \f$ M = \tilde{J}\tilde{J}^T \f$ of the frame Jacobian expressed in
- * world coordinates, restricted to some world axes (translation by default) and measure joints, with its columns
- * optionally scaled by the maximum joint velocities (see tasks::ManipulabilityEllipsoidTask).
+ * The ellipsoid is computed from the frame Jacobian \f$ \tilde{J} \f$ expressed in world coordinates, restricted to
+ * some world axes (translation by default) and measure joints (see tasks::ManipulabilityEllipsoidTask):
+ * - the velocity ellipsoid \f$ M = \tilde{J}\tilde{J}^T \f$, the columns optionally scaled by the maximum joint
+ *   velocities
+ * - the force ellipsoid \f$ M = (\tilde{J}\tilde{J}^T)^{-1} \f$, the columns optionally divided by the maximum joint
+ *   torques. With the torques, M is in N² for the translation axes, typically 1e2 to 1e5, and the cost of the task in
+ *   the QP grows with the square of M: lower the weight accordingly
  *
  * For D selected axes the task dimension is D (D + 1) / 2: matrices are vectorized with the Mandel notation (see
  * tasks::spd::vec), so dimWeight and dimStiffness apply to the diagonal entries first, then to each superdiagonal.
@@ -98,24 +102,57 @@ struct MC_TASKS_DLLAPI ManipulabilityEllipsoidTask : public TrajectoryTaskGeneri
   /*! \brief Get the error between the ellipsoid and the target */
   tasks::ManipulabilityEllipsoidError error() const;
 
-  /*! \brief Set the maximum velocity of measure joints (Jaquier et al., eq. 48)
+  /*! \brief Set the maximum velocity of measure joints (Jaquier et al., eq. 48), for the velocity ellipsoid
    *
    * The velocity applies to every degree of freedom of the joint, joints that are not given keep their value
    *
-   * \throws std::domain_error if a joint is not a measure joint or a velocity is not strictly positive
+   * \throws std::domain_error if the ellipsoid is not the velocity ellipsoid, a joint is not a measure joint or a
+   * velocity is not strictly positive
    */
   void maxJointVelocity(const std::map<std::string, double> & velocities);
 
-  /*! \brief Set the maximum velocity of every measure joint from the robot velocity limits
+  /*! \brief Set the maximum velocity of every measure joint from the robot velocity limits, for the velocity ellipsoid
    *
    * The smallest of the lower and upper limit magnitudes is used
    *
-   * \throws std::domain_error if a measure joint has no finite and non-zero velocity limit
+   * \throws std::domain_error if the ellipsoid is not the velocity ellipsoid or a measure joint has no finite and
+   * non-zero velocity limit
    */
   void maxJointVelocityFromLimits();
 
   /*! \brief Maximum velocity of each measure joint degree of freedom, ordered as measureJoints() */
   const Eigen::VectorXd & maxJointVelocity() const;
+
+  /*! \brief Set the maximum torque of measure joints (Jaquier et al., eq. 52), for the force ellipsoid
+   *
+   * The torque applies to every degree of freedom of the joint, joints that are not given keep their value
+   *
+   * \throws std::domain_error if the ellipsoid is not the force ellipsoid, a joint is not a measure joint or a torque
+   * is not strictly positive
+   */
+  void maxJointTorque(const std::map<std::string, double> & torques);
+
+  /*! \brief Set the maximum torque of every measure joint from the robot torque limits, for the force ellipsoid
+   *
+   * The smallest of the lower and upper limit magnitudes is used
+   *
+   * \throws std::domain_error if the ellipsoid is not the force ellipsoid or a measure joint has no finite and non-zero
+   * torque limit
+   */
+  void maxJointTorqueFromLimits();
+
+  /*! \brief Maximum torque of each measure joint degree of freedom, ordered as measureJoints() */
+  const Eigen::VectorXd & maxJointTorque() const;
+
+  /*! \brief Set the scale of the ellipsoids drawn in the GUI: their semi-axes are the square roots of the eigenvalues
+   * times this scale, in meters per unit of the ellipsoid (0.25 by default)
+   *
+   * \throws std::domain_error if the scale is not strictly positive
+   */
+  void displayScale(double scale);
+
+  /*! \brief Scale of the ellipsoids drawn in the GUI */
+  inline double displayScale() const noexcept { return displayScale_; }
 
   /*! \brief Joints whose Jacobian columns define the ellipsoid, ordered from the robot root to the frame */
   const std::vector<std::string> & measureJoints() const;
@@ -134,9 +171,9 @@ struct MC_TASKS_DLLAPI ManipulabilityEllipsoidTask : public TrajectoryTaskGeneri
 
   /*! \brief Load from configuration
    *
-   * Besides the TrajectoryTaskGeneric entries, reads error, useVelocityLimits, maxJointVelocity, then the target
-   * (target or targetPosture, otherwise the current ellipsoid with the new joint velocities), targetVel and
-   * targetAccel
+   * Besides the TrajectoryTaskGeneric entries, reads error, displayScale, useVelocityLimits, maxJointVelocity,
+   * useTorqueLimits, maxJointTorque, then the target (target or targetPosture, otherwise the current ellipsoid with the
+   * new joint scaling), targetVel and targetAccel
    */
   void load(mc_solver::QPSolver & solver, const mc_rtc::Configuration & config) override;
 
