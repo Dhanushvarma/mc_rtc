@@ -123,7 +123,7 @@ struct MC_TASKS_DLLAPI ManipulabilityEllipsoidTask : public TrajectoryTaskGeneri
   /*! \brief Maximum velocity of each measure joint degree of freedom, ordered as measureJoints() */
   const Eigen::VectorXd & maxJointVelocity() const;
 
-  /*! \brief Set the maximum torque of measure joints (Jaquier et al., eq. 52), for the force ellipsoid
+  /*! \brief Set the maximum torque of measure joints (Jaquier et al., Sec. 4.3), for the force ellipsoid
    *
    * The torque applies to every degree of freedom of the joint, joints that are not given keep their value
    *
