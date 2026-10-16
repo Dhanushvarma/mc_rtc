@@ -28,6 +28,11 @@ namespace mc_tasks
  *   torques. With the torques, M is in N² for the translation axes, typically 1e2 to 1e5, and the cost of the task in
  *   the QP grows with the square of M: lower the weight accordingly
  *
+ * The QP weighs this task against the others; there is no strict priority as in the nullspace controller of Jaquier et
+ * al. (eq. 39). As a secondary task, give it targets that the redundant joints can reach, for example the ellipsoid of
+ * a posture with the same main-task targets: a target out of their reach pulls the main tasks away, more as M grows
+ * (the force ellipsoid grows near singular configurations).
+ *
  * For D selected axes the task dimension is D (D + 1) / 2: matrices are vectorized with the Mandel notation (see
  * tasks::spd::vec), so dimWeight and dimStiffness apply to the diagonal entries first, then to each superdiagonal.
  *
