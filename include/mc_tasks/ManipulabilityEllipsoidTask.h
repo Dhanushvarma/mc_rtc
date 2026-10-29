@@ -33,6 +33,14 @@ namespace mc_tasks
  * a posture with the same main-task targets: a target out of their reach pulls the main tasks away, more as M grows
  * (the force ellipsoid grows near singular configurations).
  *
+ * The ellipsoid can also be the one of the frame relative to a reference frame of the same robot (relative
+ * manipulability): the Jacobian maps the joint velocities to the velocity of the frame relative to the reference frame,
+ * in the reference frame axes, and the joints the paths from the root to both frames share are left out. With a frame
+ * on each hand this is the bimanual relative manipulability of Li et al. ("ManiDP: Manipulability-Aware Diffusion
+ * Policy for Posture-Dependent Bimanual Manipulation", 2025): the velocity ellipsoid describes how fast one hand can
+ * move relative to the other, the force ellipsoid the force one hand can apply against the other, which takes the
+ * reaction at the same point: a squeeze or a pull along the line between the hands, and also a moment across it.
+ *
  * For D selected axes the task dimension is D (D + 1) / 2: matrices are vectorized with the Mandel notation (see
  * tasks::spd::vec), so dimWeight and dimStiffness apply to the diagonal entries first, then to each superdiagonal.
  *
@@ -60,6 +68,37 @@ struct MC_TASKS_DLLAPI ManipulabilityEllipsoidTask : public TrajectoryTaskGeneri
    * \throws std::domain_error if the measure joints or the axes are invalid
    */
   ManipulabilityEllipsoidTask(const mc_rbdyn::RobotFrame & frame,
+                              const std::vector<std::string> & measureJoints = {},
+                              const Eigen::Vector6d & axes = (Eigen::Vector6d() << 0., 0., 0., 1., 1., 1.).finished(),
+                              tasks::ManipulabilityEllipsoidType type = tasks::ManipulabilityEllipsoidType::Velocity,
+                              double stiffness = 5.0,
+                              double weight = 100.0);
+
+  /*! \brief Constructor for the ellipsoid of a frame relative to a reference frame
+   *
+   * \param frame Frame whose manipulability ellipsoid is controlled
+   *
+   * \param referenceFrame Frame of the same robot, the ellipsoid describes the motion of the frame relative to it, in
+   * its axes
+   *
+   * \param measureJoints Joints whose Jacobian columns define the ellipsoid, if empty every joint between the two
+   * frames: the joints between the robot root and one frame that are not between the robot root and the other one,
+   * those of the reference frame first
+   *
+   * \param axes Reference frame axes of the ellipsoid, ordered as sva::MotionVecd (rotation then translation), a
+   * non-zero entry selects the axis
+   *
+   * \param type Manipulability ellipsoid
+   *
+   * \param stiffness Task stiffness
+   *
+   * \param weight Task weight
+   *
+   * \throws std::domain_error if the frames belong to different robots, or if the measure joints or the axes are
+   * invalid
+   */
+  ManipulabilityEllipsoidTask(const mc_rbdyn::RobotFrame & frame,
+                              const mc_rbdyn::RobotFrame & referenceFrame,
                               const std::vector<std::string> & measureJoints = {},
                               const Eigen::Vector6d & axes = (Eigen::Vector6d() << 0., 0., 0., 1., 1., 1.).finished(),
                               tasks::ManipulabilityEllipsoidType type = tasks::ManipulabilityEllipsoidType::Velocity,
@@ -159,10 +198,12 @@ struct MC_TASKS_DLLAPI ManipulabilityEllipsoidTask : public TrajectoryTaskGeneri
   /*! \brief Scale of the ellipsoids drawn in the GUI */
   inline double displayScale() const noexcept { return displayScale_; }
 
-  /*! \brief Joints whose Jacobian columns define the ellipsoid, ordered from the robot root to the frame */
+  /*! \brief Joints whose Jacobian columns define the ellipsoid, ordered from the robot root to the frame (for a
+   * relative ellipsoid, the joints on the reference frame side from the robot root to the reference frame, then the
+   * joints on the frame side) */
   const std::vector<std::string> & measureJoints() const;
 
-  /*! \brief World axes of the ellipsoid */
+  /*! \brief World axes of the ellipsoid (reference frame axes for a relative ellipsoid) */
   const Eigen::Vector6d & axes() const;
 
   /*! \brief Manipulability ellipsoid (type() is the task type) */
@@ -174,6 +215,9 @@ struct MC_TASKS_DLLAPI ManipulabilityEllipsoidTask : public TrajectoryTaskGeneri
   /*! \brief Frame whose manipulability ellipsoid is controlled */
   inline const mc_rbdyn::RobotFrame & frame() const noexcept { return *frame_; }
 
+  /*! \brief Reference frame of a relative ellipsoid, nullptr otherwise */
+  inline const mc_rbdyn::RobotFrame * referenceFrame() const noexcept { return referenceFrame_.get(); }
+
   /*! \brief Load from configuration
    *
    * Besides the TrajectoryTaskGeneric entries, reads error, displayScale, useVelocityLimits, maxJointVelocity,
@@ -183,6 +227,12 @@ struct MC_TASKS_DLLAPI ManipulabilityEllipsoidTask : public TrajectoryTaskGeneri
   void load(mc_solver::QPSolver & solver, const mc_rtc::Configuration & config) override;
 
 protected:
+  /** Create the backend task, relative to the reference frame if there is one */
+  void init(const mc_rbdyn::RobotFrame * referenceFrame,
+            const std::vector<std::string> & measureJoints,
+            const Eigen::Vector6d & axes,
+            tasks::ManipulabilityEllipsoidType type);
+
   void addToGUI(mc_rtc::gui::StateBuilder & gui) override;
   void addToLogger(mc_rtc::Logger & logger) override;
 
@@ -190,6 +240,7 @@ protected:
   void targetCurrent();
 
   mc_rbdyn::ConstRobotFramePtr frame_;
+  mc_rbdyn::ConstRobotFramePtr referenceFrame_;
   /** Ellipsoid computation, owned by the backend task */
   tasks::ManipulabilityEllipsoidTask * ellipsoid_ = nullptr;
   /** Scale of the ellipsoids drawn in the GUI, the semi-axes are scale times the square roots of the eigenvalues */

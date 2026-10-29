@@ -20,7 +20,8 @@ namespace mc_tvm
  *
  * The value is \f$ -\mathrm{vec}(\mathrm{Log}_M(\hat{M})) \f$ (or \f$ \mathrm{vec}(M - \hat{M}) \f$ with the Euclidean
  * error), vec being the Mandel vectorization. The ellipsoid and its derivatives are computed by
- * tasks::ManipulabilityEllipsoidTask, see its documentation for the definition of the ellipsoid.
+ * tasks::ManipulabilityEllipsoidTask, see its documentation for the definition of the ellipsoid, also relative to a
+ * reference frame.
  */
 class MC_TVM_DLLAPI ManipulabilityEllipsoidFunction : public tvm::function::abstract::Function
 {
@@ -43,6 +44,31 @@ public:
    */
   ManipulabilityEllipsoidFunction(
       const mc_rbdyn::RobotFrame & frame,
+      const std::vector<std::string> & measureJoints = {},
+      const Eigen::Vector6d & axes = (Eigen::Vector6d() << 0., 0., 0., 1., 1., 1.).finished(),
+      tasks::ManipulabilityEllipsoidType type = tasks::ManipulabilityEllipsoidType::Velocity);
+
+  /** Constructor for the ellipsoid of a frame relative to a reference frame of the same robot
+   *
+   * Set the target to the current ellipsoid
+   *
+   * \param frame Frame whose manipulability ellipsoid is controlled
+   *
+   * \param referenceFrame Reference frame, the ellipsoid describes the motion of the frame relative to it, in its axes
+   *
+   * \param measureJoints Joints whose Jacobian columns define the ellipsoid, if empty every joint between the two
+   * frames: the joints between the robot root and one frame that are not between the robot root and the other one
+   *
+   * \param axes Reference frame axes of the ellipsoid, ordered as sva::MotionVecd (rotation then translation), a
+   * non-zero entry selects the axis
+   *
+   * \param type Manipulability ellipsoid
+   *
+   * \throws std::domain_error if the frames belong to different robots
+   */
+  ManipulabilityEllipsoidFunction(
+      const mc_rbdyn::RobotFrame & frame,
+      const mc_rbdyn::RobotFrame & referenceFrame,
       const std::vector<std::string> & measureJoints = {},
       const Eigen::Vector6d & axes = (Eigen::Vector6d() << 0., 0., 0., 1., 1., 1.).finished(),
       tasks::ManipulabilityEllipsoidType type = tasks::ManipulabilityEllipsoidType::Velocity);
@@ -71,13 +97,23 @@ public:
   /** Access the frame */
   inline const mc_rbdyn::RobotFrame & frame() const noexcept { return *frame_; }
 
+  /** Reference frame of a relative ellipsoid, nullptr otherwise */
+  inline const mc_rbdyn::RobotFrame * referenceFrame() const noexcept { return referenceFrame_.get(); }
+
 protected:
+  ManipulabilityEllipsoidFunction(const mc_rbdyn::RobotFrame & frame,
+                                  const mc_rbdyn::RobotFrame * referenceFrame,
+                                  const std::vector<std::string> & measureJoints,
+                                  const Eigen::Vector6d & axes,
+                                  tasks::ManipulabilityEllipsoidType type);
+
   void updateValue();
   void updateVelocity();
   void updateJacobian();
   void updateNormalAcceleration();
 
   mc_rbdyn::ConstRobotFramePtr frame_;
+  mc_rbdyn::ConstRobotFramePtr referenceFrame_;
 
   tasks::ManipulabilityEllipsoidTask ellipsoid_;
 

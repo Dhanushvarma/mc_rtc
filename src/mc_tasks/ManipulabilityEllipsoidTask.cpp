@@ -70,15 +70,52 @@ ManipulabilityEllipsoidTask::ManipulabilityEllipsoidTask(const mc_rbdyn::RobotFr
                                                          double weight)
 : TrajectoryTaskGeneric(frame, stiffness, weight), frame_(frame)
 {
+  init(nullptr, measureJoints, axes, type);
+}
+
+ManipulabilityEllipsoidTask::ManipulabilityEllipsoidTask(const mc_rbdyn::RobotFrame & frame,
+                                                         const mc_rbdyn::RobotFrame & referenceFrame,
+                                                         const std::vector<std::string> & measureJoints,
+                                                         const Eigen::Vector6d & axes,
+                                                         tasks::ManipulabilityEllipsoidType type,
+                                                         double stiffness,
+                                                         double weight)
+: TrajectoryTaskGeneric(frame, stiffness, weight), frame_(frame), referenceFrame_(referenceFrame)
+{
+  if(&referenceFrame.robot() != &frame.robot())
+  {
+    throw std::domain_error(
+        fmt::format("[ManipulabilityEllipsoidTask] the reference frame {} belongs to {}, not to {} like the frame {}",
+                    referenceFrame.name(), referenceFrame.robot().name(), frame.robot().name(), frame.name()));
+  }
+  init(&referenceFrame, measureJoints, axes, type);
+}
+
+void ManipulabilityEllipsoidTask::init(const mc_rbdyn::RobotFrame * referenceFrame,
+                                       const std::vector<std::string> & measureJoints,
+                                       const Eigen::Vector6d & axes,
+                                       tasks::ManipulabilityEllipsoidType type)
+{
+  const auto & frame = *frame_;
   switch(backend_)
   {
     case Backend::Tasks:
       finalize<Backend::Tasks, tasks::qp::ManipulabilityEllipsoidTask>(
-          robots.mbs(), static_cast<int>(rIndex), frame.body(), frame.X_b_f(), measureJoints, axes, type);
+          robots.mbs(), static_cast<int>(rIndex), frame.body(), frame.X_b_f(), measureJoints, axes, type,
+          referenceFrame ? referenceFrame->body() : std::string{},
+          referenceFrame ? referenceFrame->X_b_f() : sva::PTransformd::Identity());
       ellipsoid_ = &tasks_error(errorT)->task();
       break;
     case Backend::TVM:
-      finalize<Backend::TVM, mc_tvm::ManipulabilityEllipsoidFunction>(frame, measureJoints, axes, type);
+      if(referenceFrame)
+      {
+        finalize<Backend::TVM, mc_tvm::ManipulabilityEllipsoidFunction>(frame, *referenceFrame, measureJoints, axes,
+                                                                        type);
+      }
+      else
+      {
+        finalize<Backend::TVM, mc_tvm::ManipulabilityEllipsoidFunction>(frame, measureJoints, axes, type);
+      }
       ellipsoid_ = &tvm_error(errorT)->ellipsoidTask();
       break;
     default:
@@ -86,6 +123,7 @@ ManipulabilityEllipsoidTask::ManipulabilityEllipsoidTask(const mc_rbdyn::RobotFr
   }
   type_ = "manipulabilityEllipsoid";
   name_ = "manipulability_ellipsoid_" + frame.robot().name() + "_" + frame.name();
+  if(referenceFrame) { name_ += "_" + referenceFrame->name(); }
   reset();
 }
 
@@ -303,16 +341,22 @@ void ManipulabilityEllipsoidTask::addToGUI(mc_rtc::gui::StateBuilder & gui)
                      {
                        if(s > 0.) { displayScale_ = s; }
                      }));
+  if(referenceFrame_)
+  {
+    gui.addElement({"Tasks", name_}, mc_rtc::gui::Label("relative to", [this]() { return referenceFrame_->name(); }));
+  }
   // Draw the ellipsoids when the axes are the rotation or the translation axes
   const Eigen::Vector6d & a = axes();
   const bool rotation = (a.head<3>().array() != 0.).all() && (a.tail<3>().array() == 0.).all();
   const bool translation = (a.head<3>().array() == 0.).all() && (a.tail<3>().array() != 0.).all();
   if(rotation || translation)
   {
+    // The principal axes are in world axes, or in reference frame axes for a relative ellipsoid
     auto pose = [this](const Eigen::MatrixXd & M)
     {
-      return sva::PTransformd(Eigen::Matrix3d(ellipsoidShape(M, displayScale_).first.transpose()),
-                              frame_->position().translation());
+      Eigen::Matrix3d E = ellipsoidShape(M, displayScale_).first.transpose();
+      if(referenceFrame_) { E = (E * referenceFrame_->position().rotation()).eval(); }
+      return sva::PTransformd(E, frame_->position().translation());
     };
     gui.addElement({"Tasks", name_},
                    mc_rtc::gui::Ellipsoid(
@@ -351,9 +395,20 @@ static auto registered = mc_tasks::MetaTaskLoader::register_load_function(
     [](mc_solver::QPSolver & solver, const mc_rtc::Configuration & config)
     {
       const auto & robot = robotFromConfig(config, solver.robots(), "manipulabilityEllipsoid");
-      auto t = std::make_shared<mc_tasks::ManipulabilityEllipsoidTask>(
-          robot.frame(config("frame")), config("joints", std::vector<std::string>{}), config("axes", translationAxes()),
-          ellipsoidFromConfig(config));
+      std::shared_ptr<mc_tasks::ManipulabilityEllipsoidTask> t;
+      if(config.has("referenceFrame"))
+      {
+        t = std::make_shared<mc_tasks::ManipulabilityEllipsoidTask>(
+            robot.frame(config("frame")), robot.frame(config("referenceFrame")),
+            config("joints", std::vector<std::string>{}), config("axes", translationAxes()),
+            ellipsoidFromConfig(config));
+      }
+      else
+      {
+        t = std::make_shared<mc_tasks::ManipulabilityEllipsoidTask>(
+            robot.frame(config("frame")), config("joints", std::vector<std::string>{}),
+            config("axes", translationAxes()), ellipsoidFromConfig(config));
+      }
       t->load(solver, config);
       return t;
     });

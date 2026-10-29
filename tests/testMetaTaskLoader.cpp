@@ -871,3 +871,43 @@ BOOST_AUTO_TEST_CASE(TestManipulabilityForceEllipsoidLoader)
   }
   BOOST_CHECK_THROW(mc_tasks::MetaTaskLoader::load(solver, config("dynamic")), std::exception);
 }
+
+/* The relative ellipsoid of manipulabilityEllipsoid (referenceFrame) */
+BOOST_AUTO_TEST_CASE(TestManipulabilityRelativeEllipsoidLoader)
+{
+  static mc_solver::TasksQPSolver solver(robots, 0.005);
+  mc_rtc::Configuration c;
+  c.add("type", "manipulabilityEllipsoid");
+  c.add("robotIndex", 0);
+  c.add("frame", "RightGripper");
+  c.add("referenceFrame", "LeftGripper");
+  c.add("ellipsoid", "force");
+  c.add("useTorqueLimits", true);
+  auto loaded = mc_tasks::MetaTaskLoader::load<mc_tasks::ManipulabilityEllipsoidTask>(solver, c);
+  auto ref = std::make_shared<mc_tasks::ManipulabilityEllipsoidTask>(
+      robots->robot(0).frame("RightGripper"), robots->robot(0).frame("LeftGripper"), std::vector<std::string>{},
+      (Eigen::Vector6d() << 0., 0., 0., 1., 1., 1.).finished(), tasks::ManipulabilityEllipsoidType::Force);
+  ref->maxJointTorqueFromLimits();
+  ref->reset();
+  BOOST_REQUIRE(loaded->referenceFrame());
+  BOOST_CHECK_EQUAL(loaded->referenceFrame()->name(), "LeftGripper");
+  BOOST_CHECK_EQUAL(loaded->name(), ref->name());
+  BOOST_CHECK(loaded->ellipsoidType() == tasks::ManipulabilityEllipsoidType::Force);
+  // Both arms, the left one first, without the waist joints that the paths to both grippers share
+  BOOST_CHECK(loaded->measureJoints() == ref->measureJoints());
+  BOOST_CHECK_EQUAL(loaded->measureJoints().size(), 14);
+  BOOST_CHECK_EQUAL(loaded->measureJoints().front(), "L_SHOULDER_P");
+  BOOST_CHECK_EQUAL(loaded->measureJoints().back(), "R_WRIST_Y");
+  for(const auto & j : loaded->measureJoints()) { BOOST_CHECK(j.find("WAIST") == std::string::npos); }
+  BOOST_CHECK(loaded->maxJointTorque() == ref->maxJointTorque());
+  BOOST_CHECK(loaded->target().allFinite());
+  BOOST_CHECK_SMALL((loaded->target() - ref->target()).norm(), 1e-9 * ref->target().norm());
+
+  // The reference frame must exist and belong to the same robot
+  c.add("referenceFrame", "NoSuchFrame");
+  BOOST_CHECK_THROW(mc_tasks::MetaTaskLoader::load(solver, c), std::exception);
+  const auto & ground = robots->robot(1);
+  BOOST_CHECK_THROW(mc_tasks::ManipulabilityEllipsoidTask(robots->robot(0).frame("RightGripper"),
+                                                          ground.frame(ground.mb().body(0).name())),
+                    std::domain_error);
+}

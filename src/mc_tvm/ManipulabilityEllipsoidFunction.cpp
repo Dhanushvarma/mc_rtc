@@ -9,6 +9,8 @@
 #include <mc_rbdyn/Robot.h>
 #include <mc_rbdyn/RobotFrame.h>
 
+#include <mc_rtc/logging.h>
+
 #include <Tasks/SPDManifold.h>
 
 namespace mc_tvm
@@ -23,15 +25,56 @@ int ellipsoidVecSize(const Eigen::Vector6d & axes)
   return std::max(tasks::spd::vecSize(static_cast<int>((axes.array() != 0.).count())), 1);
 }
 
+/** Ellipsoid computation of a frame, relative to the reference frame if there is one */
+tasks::ManipulabilityEllipsoidTask makeEllipsoid(const mc_rbdyn::RobotFrame & frame,
+                                                 const mc_rbdyn::RobotFrame * referenceFrame,
+                                                 const std::vector<std::string> & measureJoints,
+                                                 const Eigen::Vector6d & axes,
+                                                 tasks::ManipulabilityEllipsoidType type)
+{
+  if(!referenceFrame)
+  {
+    return tasks::ManipulabilityEllipsoidTask(frame.robot().mb(), frame.body(), frame.X_b_f(), measureJoints, axes,
+                                              type);
+  }
+  if(&referenceFrame->robot() != &frame.robot())
+  {
+    throw std::domain_error(fmt::format(
+        "[ManipulabilityEllipsoidFunction] the reference frame {} belongs to {}, not to {} like the frame {}",
+        referenceFrame->name(), referenceFrame->robot().name(), frame.robot().name(), frame.name()));
+  }
+  return tasks::ManipulabilityEllipsoidTask(frame.robot().mb(), frame.body(), frame.X_b_f(), measureJoints, axes, type,
+                                            referenceFrame->body(), referenceFrame->X_b_f());
+}
+
 } // namespace
 
 ManipulabilityEllipsoidFunction::ManipulabilityEllipsoidFunction(const mc_rbdyn::RobotFrame & frame,
                                                                  const std::vector<std::string> & measureJoints,
                                                                  const Eigen::Vector6d & axes,
                                                                  tasks::ManipulabilityEllipsoidType type)
+: ManipulabilityEllipsoidFunction(frame, nullptr, measureJoints, axes, type)
+{
+}
+
+ManipulabilityEllipsoidFunction::ManipulabilityEllipsoidFunction(const mc_rbdyn::RobotFrame & frame,
+                                                                 const mc_rbdyn::RobotFrame & referenceFrame,
+                                                                 const std::vector<std::string> & measureJoints,
+                                                                 const Eigen::Vector6d & axes,
+                                                                 tasks::ManipulabilityEllipsoidType type)
+: ManipulabilityEllipsoidFunction(frame, &referenceFrame, measureJoints, axes, type)
+{
+}
+
+ManipulabilityEllipsoidFunction::ManipulabilityEllipsoidFunction(const mc_rbdyn::RobotFrame & frame,
+                                                                 const mc_rbdyn::RobotFrame * referenceFrame,
+                                                                 const std::vector<std::string> & measureJoints,
+                                                                 const Eigen::Vector6d & axes,
+                                                                 tasks::ManipulabilityEllipsoidType type)
 : tvm::function::abstract::Function(ellipsoidVecSize(axes)), frame_(frame),
-  ellipsoid_(frame.robot().mb(), frame.body(), frame.X_b_f(), measureJoints, axes, type),
-  refVel_(Eigen::VectorXd::Zero(size())), refAccel_(Eigen::VectorXd::Zero(size()))
+  referenceFrame_(referenceFrame ? mc_rbdyn::ConstRobotFramePtr(*referenceFrame) : mc_rbdyn::ConstRobotFramePtr{}),
+  ellipsoid_(makeEllipsoid(frame, referenceFrame, measureJoints, axes, type)), refVel_(Eigen::VectorXd::Zero(size())),
+  refAccel_(Eigen::VectorXd::Zero(size()))
 {
   reset();
   // clang-format off
